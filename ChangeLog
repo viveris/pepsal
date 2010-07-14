@@ -1,0 +1,11 @@
+1.0.0 : Several bugfixes, rewritten most of the code, removed obsolete ip_queue interface, autotools added
+1.0.1 : Double initial bind for TCP socket. New POSIX signal management
+support.
+1.0.2 : Added socket timeout options for non-blocking sockets.
+
+1.2.0 : Fixed instability in http connections. Added timeout for sleeping
+sockets. Two separate poll for reading/writing
+
+1.2.1 : small bugfix: netfilter_queue libraries unbind function return value discarded
+
+1.2.2 : Added -a option to bind to a single address, memory leak bugfix (all thanks to Wojtek Sawasciuk)

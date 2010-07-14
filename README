@@ -1,0 +1,54 @@
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+PEPsal: A TCP Performance Enhancing Proxy for satellite links
+http://www.sourceforge.net/projects/pepsal
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+PEPsal is a multi layer proxy. At the network level, it uses netfilter to intercept those 
+connections that would involve a satellite links and "steals" the TCP SYN packet in 
+the three-way handshake phase of a TCP connection, then pretends to be the other side of that 
+connection, and initiate a new connection to the real endpoint, using a userspace application 
+that directly copy data between the two sockets.
+
+The PEPsal is classified as an integrated PEP, since it runs only on a single linux box that 
+normally forwards packet between two or more networks, and can select which connections have to
+Please Refer to COPYING for license.
+be enhanced by means of netfilter.
+
+The application is written in C with the use of shared memory library and netfilter ipqueue 
+library. It is multi-thread and multi-task. One process, the "queuer", 
+communicate with the netfilter by the ipqueue library routines. It reads every syn packet in 
+the queue, annotating the information on the two endpoints in a known zone of the shared memory,
+a connection array with a bitmap index for fast access, and then release the packet which 
+continues its path through the netfilter chain. Just after that, our SYN packet is redirected 
+by netfilter to tcp port 5000, where a TCP daemon, the "connection manager" 
+is listening for it. The connecion is accepted by a dedicated "proxy server" 
+process, which search in shared memory for the instance matching source address and TCP port 
+of the host which has started the connection.
+Once the destination IP address and port have been found in the connection array, a new TCP 
+connection is attempted to real destination. When both connections are established,  the proxy 
+spawns two little concurrent threads, each one reading from one TCP socket and writing all the 
+data to the other one. When one of the two connections ends, the other socket is closed and the
+proxy process ends.
+
+PEPsal represents a valid solution for the degraded TCP performances when for example satellite
+link are involved. It does not require modifications on content servers or satellite receivers,
+it is sufficient to install a computer running PEPsal in a path which all poor performing TCP 
+connection must pass through. It is designed to follow the advices given in IETF RFC3135, to 
+implement a simple "TCP split" technique. The aim of PEPsal is to give a free 
+alternative in the scenario of commercial "black-boxes" acting as performance 
+enhancing proxies.
+ 
+
+
+Idea and Design	: Carlo Caini <ccaini@deis.unibo.it>, 
+		  Rosario Firrincieli <rfirrincieli@arces.unibo.it>
+		  Daniele Lacamera <root@danielinux.net>
+
+Author		: Daniele Lacamera <root@danielinux.net>
+
+Co-Author	: Sergio Ammirata <sergio.ammirata@wialan.com>
+
+
+Please Refer to COPYING for license.
+
+

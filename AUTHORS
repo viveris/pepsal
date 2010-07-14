@@ -3,13 +3,13 @@ PEPsal: A TCP Performance Enhancing Proxy for satellite links
 http://www.sourceforge.net/projects/pepsal
 -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-Idea and Design	: Carlo Caini <ccaini@deis.unibo.it>, 
-		  Rosario Firrincieli <rfirrincieli@arces.unibo.it>
-		  Daniele Lacamera <root@danielinux.net>
+Idea and Design	: Carlo Caini <ccaini at deis.unibo.it>, 
+		  Rosario Firrincieli <rfirrincieli at arces.unibo.it>
+		  Daniele Lacamera <root at danielinux.net>
 
-Author		: Daniele Lacamera <root@danielinux.net>
+Authors		: Daniele Lacamera <root at danielinux.net>, Dan Kruchinin <dkruchinin at acm.org> 
 
-Co-Author	: Sergio Ammirata <sergio.ammirata@wialan.com>
+Co-Author	: Sergio Ammirata <sergio.ammirata at wialan.com>
 
 
 Please Refer to COPYING for license.

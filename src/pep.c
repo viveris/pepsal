@@ -116,8 +116,8 @@ static struct pep_logger logger;
 static pthread_t queuer;
 static pthread_t listener;
 static pthread_t poller;
+static pthread_t timer_sch;
 static pthread_t *workers = NULL;
-static timer_t gcc_timer; /* Garbage connections collector timer */
 
 #define pep_error(fmt, args...)                     \
     __pep_error(__FUNCTION__, __LINE__, fmt, ##args)
@@ -228,7 +228,7 @@ static char *conn_stat[] = {
     "PST_PENDING",
 };
 
-static void logger_fn(union sigval unused)
+static void logger_fn(void)
 {
     struct pep_proxy *proxy;
     time_t tm;
@@ -368,7 +368,7 @@ out:
  * connections in SYN table and closes them if a connection hasn't have any
  * activity for a long time.
  */
-static void garbage_connections_collector(union sigval unused)
+static void garbage_connections_collector(void)
 {
     struct pep_proxy *proxy;
     struct list_node *item, *safe;
@@ -571,7 +571,7 @@ err:
     return ret;
 }
 
-static void *queuer_loop(void *unused)
+static void *queuer_loop(void __attribute__((unused)) *unused)
 {
 	struct nfq_handle *h;
 	struct nfq_q_handle *qh;
@@ -623,7 +623,7 @@ static void *queuer_loop(void *unused)
     pthread_exit(NULL);
 }
 
-void *listener_loop(void *unused)
+void *listener_loop(void  __attribute__((unused)) *unused)
 {
     int                 listenfd, optval, ret, connfd, out_fd;
 	struct sockaddr_in  cliaddr, servaddr,
@@ -837,7 +837,7 @@ static void poller_sighandler(int signo)
     PEP_DEBUG("Received signal %d", signo);
 }
 
-static void *poller_loop(void *unused)
+static void *poller_loop(void  __attribute__((unused)) *unused)
 {
     int pollret, num_works, i, num_clients, iostat;
     struct pep_proxy *proxy;
@@ -1001,7 +1001,7 @@ static void *poller_loop(void *unused)
     }
 }
 
-static void *workers_loop(void *unused)
+static void *workers_loop(void __attribute__((unused)) *unused)
 {
     struct pep_proxy *proxy;
     struct list_head local_list;
@@ -1034,10 +1034,38 @@ static void *workers_loop(void *unused)
     }
 }
 
+static void *timer_sch_loop(void __attribute__((unused)) *unused)
+{
+    struct timeval last_log_evt_time = {0U, 0U}, last_gc_evt_time = {0U, 0U}, now;
+
+    if (logger.filename) {
+        PEP_DEBUG("Setting up PEP logger");
+        logger.file = fopen(logger.filename, "w+");
+        if (!logger.file) {
+            pep_error("Failed to open log file %s!", logger.filename);
+        }
+        gettimeofday(&last_log_evt_time, 0);
+        gettimeofday(&last_gc_evt_time, 0);
+    }
+    
+    for(;;) { 
+        gettimeofday(&now, 0);
+        if (logger.file && now.tv_sec > last_log_evt_time.tv_sec + PEPLOGGER_INTERVAL) {
+            logger_fn();
+            gettimeofday(&last_log_evt_time, 0);
+        }
+
+        if (now.tv_sec > last_gc_evt_time.tv_sec + gcc_interval) {
+            garbage_connections_collector();
+            gettimeofday(&last_gc_evt_time, 0);
+        }
+        sleep(2);
+    }
+}
+
 static void init_pep_threads(void)
 {
     int ret;
-
     PEP_DEBUG("Creating queuer thread");
     ret = pthread_create(&queuer, NULL, queuer_loop, NULL);
     if (ret) {
@@ -1054,6 +1082,11 @@ static void init_pep_threads(void)
     ret = pthread_create(&poller, NULL, poller_loop, NULL);
     if (ret < 0) {
         pep_error("Failed to create the poller thread! [RET = %d]", ret);
+    }
+    PEP_DEBUG("Creating timer_sch thread");
+    ret = pthread_create(&timer_sch, NULL, timer_sch_loop, NULL);
+    if (ret < 0) {
+        pep_error("Failed to create the timer_sch thread! [RET = %d]", ret);
     }
 }
 
@@ -1081,68 +1114,6 @@ static void create_threads_pool(int num_threads)
         if (ret) {
             pep_error("Failed to create %d thread in pool!", i + 1);
         }
-    }
-}
-
-static void init_pep_logger(void)
-{
-    int ret;
-    struct itimerspec its;
-    struct sigevent sigev;
-
-    if (!logger.filename) {
-        return;
-    }
-
-    PEP_DEBUG("Setting up PEP logger");
-    logger.file = fopen(logger.filename, "w+");
-    if (!logger.file) {
-        pep_error("Failed to open log file %s!", logger.filename);
-    }
-
-    memset(&sigev, 0, sizeof(sigev));
-    sigev.sigev_notify = SIGEV_THREAD;
-    sigev.sigev_notify_function = logger_fn;
-
-    ret = timer_create(CLOCK_REALTIME, &sigev, &logger.timer);
-    if (ret != 0) {
-        pep_error("Failed to create logger timer!");
-    }
-
-    memset(&its, 0, sizeof(its));
-    its.it_value.tv_sec = PEPLOGGER_INTERVAL;
-    its.it_interval.tv_sec = PEPLOGGER_INTERVAL;
-
-    ret = timer_settime(logger.timer, 0, &its, NULL);
-    if (ret != 0) {
-        pep_error("Failed to set timer interval to logger timer!");
-    }
-}
-
-static void init_gcc_timer(void)
-{
-    struct itimerspec its;
-    struct sigevent sigev;
-    int ret;
-
-    PEP_DEBUG("Setting up garbage connections collector...");
-    memset(&its, 0, sizeof(its));
-    memset(&sigev, 0, sizeof(its));
-
-    sigev.sigev_notify = SIGEV_THREAD;
-    sigev.sigev_notify_function = garbage_connections_collector;
-
-    ret = timer_create(CLOCK_REALTIME, &sigev, &gcc_timer);
-    if (ret != 0) {
-        pep_error("Failed to create garbage connections collector timer!");
-    }
-
-    its.it_value.tv_sec = gcc_interval;
-    its.it_interval.tv_sec = gcc_interval;
-    ret = timer_settime(gcc_timer, 0, &its, NULL);
-    if (ret != 0) {
-        pep_error("Failed to setup interval of garbage connections "
-                  "collector timer!");
     }
 }
 
@@ -1252,13 +1223,12 @@ int main(int argc, char *argv[])
     init_pep_queues();
     init_pep_threads();
     create_threads_pool(PEPPOOL_THREADS);
-    init_pep_logger();
-    init_gcc_timer();
 
     PEP_DEBUG("Pepsal started...");
     pthread_join(queuer, &valptr);
     pthread_join(listener, &valptr);
     pthread_join(poller, &valptr);
+    pthread_join(timer_sch, &valptr);
     printf("exiting...\n");
     return 0;
 }

@@ -843,6 +843,7 @@ static void *poller_loop(void  __attribute__((unused)) *unused)
     struct pep_proxy *proxy;
     struct pep_endpoint *endp, *target;
     struct pollfd *pollfd;
+    struct list_node *entry, *safe;
     struct list_head local_list;
     sigset_t sigset;
     struct sigaction sa;
@@ -935,6 +936,10 @@ static void *poller_loop(void  __attribute__((unused)) *unused)
                 case PST_OPEN:
                 {
                     if (pollfd->revents & (POLLHUP | POLLERR | POLLNVAL)) {
+                        if (proxy->enqueued) {
+                            list_del(&proxy->qnode);
+                        }
+
                         destroy_proxy(proxy);
                         continue;
                     }
@@ -983,14 +988,15 @@ static void *poller_loop(void  __attribute__((unused)) *unused)
          * 1) Close the connection if an I/O error occured or EOF was reached
          * 2) Continue work with connection and renew its I/O status
          */
-        list_for_each_entry(&local_list, proxy,
-                            struct pep_proxy, qnode) {
+        list_for_each_safe(&local_list, entry, safe) {
+            proxy = list_entry(entry, struct pep_proxy, qnode);
             proxy->enqueued = 0;
             for (i = 0; i < PROXY_ENDPOINTS; i++) {
                 endp = &proxy->endpoints[i];
                 iostat = endp->iostat;
                 if ((iostat & PEP_IOERR) ||
                     ((iostat & PEP_IOEOF) && pepbuf_empty(&endp->buf))) {
+                    list_del(&proxy->qnode);
                     destroy_proxy(proxy);
                     break;
                 }

@@ -13,7 +13,8 @@ AC_PROG_RANLIB
 
 # Checks for libraries.
 AC_CHECK_LIB([netfilter_queue], [nfq_handle_packet], ,AC_MSG_ERROR([   ***   Unable to find netfilter-queue library.]))
-AC_CHECK_LIB([nfnetlink], [nfnl_open], , AC_MSG_ERROR([   ***   Unable to find netfilter-netlink library.]))
+AC_CHECK_LIB([nfnetlink], [nfnl_open], , AC_MSG_ERROR([   ***   Unable to find nfnetlink library.]))
+AC_CHECK_LIB([pthread], [pthread_create], , AC_MSG_ERROR([   ***   Unable to find pthread library.]))
 
 
 # Checks for header files.

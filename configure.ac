@@ -12,8 +12,9 @@ AC_PROG_MAKE_SET
 AC_PROG_RANLIB
 
 # Checks for libraries.
-AC_CHECK_LIB([netfilter_queue], [nfq_handle_packet])
-AC_CHECK_LIB([nfnetlink], [nfnl_open])
+AC_CHECK_LIB([netfilter_queue], [nfq_handle_packet], ,AC_MSG_ERROR([   ***   Unable to find netfilter-queue library.]))
+AC_CHECK_LIB([nfnetlink], [nfnl_open], , AC_MSG_ERROR([   ***   Unable to find netfilter-netlink library.]))
+
 
 # Checks for header files.
 AC_HEADER_DIRENT

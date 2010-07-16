@@ -64,11 +64,6 @@ from the clients. See the example iptables script for the default configuration.
 
 .SH OPTIONS
 .TP
-.B \-p "\fIportnum\fP" 
-It is possible to decide which local tcp port to use.
-When this option is not specified, pepsal will use default udp port number,
-5000.
-.TP
 .B \-d
 Daemon mode: run pepsal in background
 .TP
@@ -77,13 +72,33 @@ specify the netfilter queue to be used to spoof SYN packets incoming from the cl
 The default value is "0".
 .TP
 .B \-a "\fIAddress\fP"
-Use the specified Address to bind tcp local port (default: INADDR_ANY)
+Use the specified Address to bind tcp local socket (default: INADDR_ANY)
+.TP
+.B \-p "\fIPort\fP"
+Use the specified port to bind tcp local socket (default: 5000)
 .TP
 .B \-h 
 get a brief help
 .TP
 .B \-v
 verbose mode. Useful for debugging.
+.TP
+.B \-l "\fILogfile\fP"
+Enable logging to local file information about proxies.
+.TP
+.B \-c "\fIMax_conn\fP"
+Set maximum number of simultaneous proxy connections (default: 2112, min: 128, max: 4096)
+.TP
+.B \-t "\fILifetime\fP"
+Set maximum lifetime for proxy connections (default: 5 * 3600 seconds = 5 hours)
+.TP
+.B \-g "\fGarbageCollectorInterval\fP"
+Set time interval between two consecutive run of the garbage collector that terminate closed/expired proxyes.
+.TP
+.B \-V
+show version and exit.
+.TP
+
 .SH BUGS
 None ;-)
 
@@ -92,7 +107,7 @@ None ;-)
 .BR libipq (3),
 .br
 .SH AUTHORS 
-PEPSaL is a project by Daniele Lacamera <root@danielinux.net>. Version "2" improvements added by: Dan Kruchinin <dan@acm.org>.
+PEPSaL is a project by Daniele Lacamera <root@danielinux.net>. Version "2" improvements added by: Dan Kruchinin <dan@google.com>.
 .br
 Idea and Design: Carlo Caini <ccaini@deis.unibo.it>, Rosario Firrincieli <rfirrincieli@arces.unibo.it> and Daniele Lacamera <root@danielinux.net>
 .br

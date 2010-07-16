@@ -2,7 +2,7 @@
  * PEPsal : A Performance Enhancing Proxy for Satellite Links
  *
  * Copyleft Daniele Lacamera 2005
- * Copyleft Dan Kruchining <dkruchinin@acm.org> 2010
+ * Copyleft Dan Kruchining <dkruchinin@google.com> 2010
  * See AUTHORS and COPYING before using this software.
  *
  *
@@ -178,8 +178,10 @@ static void __pep_warning(const char *function, int line, const char *fmt, ...)
 
 static void usage(char *name)
 {
-	fprintf(stderr,"Usage: %s [-v] [-d] [-q QUEUENUM] "
-            "[-a address] [-h]\n", name);
+	fprintf(stderr,"Usage: %s [-V] [-h] [-v] [-d] [-q QUEUENUM]"
+            " [-a address] [-p port]"
+	    " [-c max_conn] [-l logfile] [-t proxy_lifetime]"
+	    " [-g garbage collector interval]\n", name);
 	exit(EXIT_SUCCESS);
 }
 

@@ -11,11 +11,49 @@ AC_PROG_CC
 AC_PROG_MAKE_SET                                                                                        
 AC_PROG_RANLIB
 
-# Checks for libraries.
-AC_CHECK_LIB([netfilter_queue], [nfq_handle_packet], ,AC_MSG_ERROR([   ***   Unable to find netfilter-queue library.]))
-AC_CHECK_LIB([nfnetlink], [nfnl_open], , AC_MSG_ERROR([   ***   Unable to find nfnetlink library.]))
-AC_CHECK_LIB([pthread], [pthread_create], , AC_MSG_ERROR([   ***   Unable to find pthread library.]))
+AC_CHECK_LIB([netfilter_queue], [nfq_handle_packet],,check_nfqueue="no")
+AC_CHECK_LIB([nfnetlink], [nfnl_open],,check_nfnetlink="no")
+AC_CHECK_LIB([pthread], [pthread_create],,check_pthread="no")
+AC_CHECK_LIB([rt], [timer_create],,check_rt="no")
+AC_CHECK_LIB([m], [ceil],,check_m="no")
 
+if test \
+      x${check_nfqueue} = xno \
+   -o x${check_nfnetlink} = xno \
+   -o x${check_pthread} = xno \
+   -o x${check_rt} = xno \
+   -o x${check_m} = xno \
+   ; then
+   AC_MSG_RESULT([])
+   if test x${check_nfqueue} = xno; then 
+      AC_MSG_RESULT([ERROR: libnetfilter-queue required])
+   fi
+   if test x${check_nfnetlink} = xno; then
+      AC_MSG_RESULT([ERROR: libnfnetlink required])
+   fi
+   if test x${check_pthread} = xno; then
+      AC_MSG_RESULT([ERROR: libpthread required])
+   fi
+   if test x${check_rt} = xno; then
+      AC_MSG_RESULT([ERROR: librt required])
+   fi
+   if test x${check_m} = xno; then
+      AC_MSG_RESULT([ERROR: libm required])
+   fi
+   exit 1
+fi
+
+# Add required libraries to LDFLAGS
+[ LDFLAGS="$LDFKAGS -lnfnetlink -lnetfilter_queue -lpthread -lrt -lm" ]
+
+AC_ARG_ENABLE(debug,
+        AC_HELP_STRING([--enable-debug], [enable debugging: yes|no (default=no)]),
+        [enable_debug=$enableval],
+        [enable_debug="no"])
+
+if test x${enable_debug} = xno; then
+   AC_DEFINE([NDEBUG], 1, "Disable assertions")
+fi
 
 # Checks for header files.
 AC_HEADER_DIRENT

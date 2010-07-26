@@ -688,7 +688,7 @@ void *listener_loop(void  __attribute__((unused)) *unused)
         key.addr = ntohl(cliaddr.sin_addr.s_addr);
         key.port = ntohs(cliaddr.sin_port);
         toip(ipbuf, key.addr);
-        PEP_DEBUG("New incomming conneciton: %s:%d", ipbuf, key.port);
+        PEP_DEBUG("New incomming connection: %s:%d", ipbuf, key.port);
 
         SYNTAB_LOCK_READ();
         proxy = syntab_find(&key);
@@ -1203,7 +1203,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    PEP_DEBUG("Init SYN table with %d max conncetions", max_conns);
+    PEP_DEBUG("Init SYN table with %d max connections", max_conns);
     ret = syntab_init(max_conns);
     if (ret < 0) {
         pep_error("Failed to initialize SYN table!");

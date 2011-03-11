@@ -537,7 +537,7 @@ static int nfqueue_get_syn(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
     if (dup != NULL) {
         PEP_DEBUG_DP(dup, "Duplicate SYN. Dropping...");
         SYNTAB_UNLOCK_WRITE();
-        ret = nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
+        nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
 
         goto err;
 	}
@@ -548,6 +548,7 @@ static int nfqueue_get_syn(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
     SYNTAB_UNLOCK_WRITE();
     if (ret < 0) {
         pep_warning("Failed to insert pep_proxy into a hash table!");
+        nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
         goto err;
     }
 

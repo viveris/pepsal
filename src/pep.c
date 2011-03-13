@@ -565,7 +565,9 @@ static int nfqueue_get_syn(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 
 err:
     if (added) {
+        SYNTAB_LOCK_WRITE();
         syntab_delete(proxy);
+        SYNTAB_UNLOCK_WRITE();
     }
     if (proxy != NULL) {
         unpin_proxy(proxy);

@@ -110,13 +110,14 @@ int syntab_add(struct pep_proxy *proxy)
     assert(proxy->status == PST_PENDING);
     key = malloc(sizeof(*key));
     if (!key) {
-        errno = -ENOMEM;
+        errno = ENOMEM;
         return -1;
     }
 
     syntab_format_key(proxy, key);
     ret = hashtable_insert(syntab.hash, key, proxy);
     if (ret == 0) {
+        free(key);
         return -1;
     }
 

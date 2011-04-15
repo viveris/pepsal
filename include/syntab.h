@@ -2,7 +2,7 @@
  * PEPsal : A Performance Enhancing Proxy for Satellite Links
  *
  * Copyleft Daniele Lacamera 2005-2007
- * Copyleft Dan Kruchinin <dkruchinin@gmail.com> 2010
+ * Copyleft Dan Kruchinin <dkruchinin@acm.org> 2010
  * See AUTHORS and COPYING before using this software.
  *
  *
@@ -42,8 +42,7 @@ extern struct syn_table syntab;
     list_for_each_entry(&GET_SYNTAB()->conns, con, struct pep_proxy, lnode)
 
 int syntab_init(int num_conns);
-void syntab_format_key(struct pep_proxy *proxy, struct syntab_key *key);
-struct pep_proxy *syntab_find(struct syntab_key *key);
+struct pep_proxy *syntab_find(int addr, unsigned short port);
 int syntab_add(struct pep_proxy *proxy);
 void syntab_delete(struct pep_proxy *proxy);
 

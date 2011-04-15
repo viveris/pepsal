@@ -2,7 +2,7 @@
  * PEPsal : A Performance Enhancing Proxy for Satellite Links
  *
  * Copyleft Daniele Lacamera 2005
- * Copyleft Dan Kruchining <dkruchinin@google.com> 2010
+ * Copyleft Dan Kruchining <dkruchinin@acm.com> 2010
  * See AUTHORS and COPYING before using this software.
  *
  *
@@ -495,7 +495,6 @@ static int nfqueue_get_syn(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 	char *buffer;
 	struct ipv4_packet *ip4;
 	struct pep_proxy *proxy, *dup;
-    struct syntab_key key;
 	int id = 0, ret, added = 0;
 	struct nfqnl_msg_packet_hdr *ph;
 
@@ -526,14 +525,13 @@ static int nfqueue_get_syn(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
     proxy->dst.addr = ntohl(ip4->iph.daddr);
     proxy->dst.port = ntohs(ip4->tcph.dest);
     proxy->syn_time = time(NULL);
-    syntab_format_key(proxy, &key);
 
 	/* Check for duplicate syn, and drop it.
      * This happens when RTT is too long and we
      * still didn't establish the connection.
      */
     SYNTAB_LOCK_WRITE();
-    dup = syntab_find(&key);
+    dup = syntab_find(proxy->src.addr, proxy->src.port);
     if (dup != NULL) {
         PEP_DEBUG_DP(dup, "Duplicate SYN. Dropping...");
         SYNTAB_UNLOCK_WRITE();
@@ -628,17 +626,16 @@ static void *queuer_loop(void __attribute__((unused)) *unused)
     pthread_exit(NULL);
 }
 
-void *listener_loop(void  __attribute__((unused)) *unused)
+void *listener_loop(void UNUSED(*unused))
 {
-    int                 listenfd, optval, ret, connfd, out_fd;
+    int                 listenfd, optval, ret, connfd, out_fd, c_addr;
 	struct sockaddr_in  cliaddr, servaddr,
                         r_servaddr, proxy_servaddr;
     socklen_t           len;
-    struct syntab_key   key;
     struct pep_proxy   *proxy;
     struct hostent     *host;
     char                ipbuf[17];
-    unsigned short      r_port;
+    unsigned short      r_port, c_port;
 
     listenfd = socket(AF_INET, SOCK_STREAM, 0);
     if (listenfd < 0) {
@@ -688,13 +685,13 @@ void *listener_loop(void  __attribute__((unused)) *unused)
          * Try to find incomming connection in our SYN table
          * It must be already there waiting for activation.
          */
-        key.addr = ntohl(cliaddr.sin_addr.s_addr);
-        key.port = ntohs(cliaddr.sin_port);
-        toip(ipbuf, key.addr);
-        PEP_DEBUG("New incomming connection: %s:%d", ipbuf, key.port);
+        c_addr = ntohl(cliaddr.sin_addr.s_addr);
+        c_port = ntohs(cliaddr.sin_port);
+        toip(ipbuf, c_addr);
+        PEP_DEBUG("New incomming connection: %s:%d", ipbuf, c_port);
 
         SYNTAB_LOCK_READ();
-        proxy = syntab_find(&key);
+        proxy = syntab_find(c_addr, c_port);
         if (!proxy) {
             pep_warning("Can not find the connection in SYN table. "
                         "Terminating!");

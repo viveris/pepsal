@@ -1,7 +1,7 @@
 /*
  * PEPsal : A Performance Enhancing Proxy for Satellite Links
  *
- * Copyleft Dan Kruchinin <dkruchinin@gmail.com> 2010
+ * Copyleft Dan Kruchinin <dkruchinin@acm.org> 2010
  * See AUTHORS and COPYING before using this software.
  *
  *
@@ -91,15 +91,20 @@ err:
     return -1;
 }
 
-void syntab_format_key(struct pep_proxy *proxy, struct syntab_key *key)
+static __inline void syntab_make_key(struct syntab_key *key,
+                                     int addr, unsigned short port)
 {
-    key->addr = proxy->src.addr;
-    key->port = proxy->src.port;
+	memset(key, 0, sizeof(*key));
+    key->addr = addr;
+    key->port = port;
 }
 
-struct pep_proxy *syntab_find(struct syntab_key *key)
+struct pep_proxy *syntab_find(int addr, unsigned short port)
 {
-    return hashtable_search(syntab.hash, key);
+    struct syntab_key key;
+
+    syntab_make_key(&key, addr, port);
+    return hashtable_search(syntab.hash, &key);
 }
 
 int syntab_add(struct pep_proxy *proxy)
@@ -114,7 +119,7 @@ int syntab_add(struct pep_proxy *proxy)
         return -1;
     }
 
-    syntab_format_key(proxy, key);
+	syntab_make_key(key, proxy->src.addr, proxy->src.port);
     ret = hashtable_insert(syntab.hash, key, proxy);
     if (ret == 0) {
         free(key);
@@ -131,7 +136,7 @@ void syntab_delete(struct pep_proxy *proxy)
 {
     struct syntab_key key;
 
-    syntab_format_key(proxy, &key);
+    syntab_make_key(&key, proxy->src.addr, proxy->src.port);
     hashtable_remove(syntab.hash, &key);
     list_del(&proxy->lnode);
     syntab.num_items--;

@@ -44,7 +44,7 @@ if test \
 fi
 
 # Add required libraries to LDFLAGS
-[ LDFLAGS="$LDFKAGS -lnfnetlink -lnetfilter_queue -lpthread -lrt -lm" ]
+[ LDFLAGS="$LDFLAGS -lnfnetlink -lnetfilter_queue -lpthread -lrt -lm" ]
 
 AC_ARG_ENABLE(debug,
         AC_HELP_STRING([--enable-debug], [enable debugging: yes|no (default=no)]),

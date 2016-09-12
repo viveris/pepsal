@@ -113,7 +113,7 @@ int syntab_add(struct pep_proxy *proxy)
     int ret;
 
     assert(proxy->status == PST_PENDING);
-    key = malloc(sizeof(*key));
+    key = calloc(sizeof(*key), 1);
     if (!key) {
         errno = ENOMEM;
         return -1;

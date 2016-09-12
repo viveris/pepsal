@@ -38,11 +38,16 @@
 #include <linux/netfilter.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
+#include <arpa/inet.h>
+
 
 #include <sys/poll.h>
 #include <string.h>
 #include <time.h>
 #include <signal.h>
+
+#include <sys/time.h>
+
 
 #if (IPQUEUE_OLD)
 #include <libipq/libipq.h>
@@ -492,7 +497,7 @@ static void pep_proxy_data(struct pep_endpoint *from, struct pep_endpoint *to)
 static int nfqueue_get_syn(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                            struct nfq_data *nfa, void *data)
 {
-	char *buffer;
+	unsigned char *buffer;
 	struct ipv4_packet *ip4;
 	struct pep_proxy *proxy, *dup;
 	int id = 0, ret, added = 0;

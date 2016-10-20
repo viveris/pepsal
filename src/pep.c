@@ -13,7 +13,6 @@
 #include "pepsal.h"
 #include "pepqueue.h"
 #include "syntab.h"
-#define IPQUEUE_OLD 0
 
 #include <unistd.h>
 #include <assert.h>
@@ -48,13 +47,6 @@
 
 #include <sys/time.h>
 
-
-#if (IPQUEUE_OLD)
-#include <libipq/libipq.h>
-#else
-#include <libnetfilter_queue/libnetfilter_queue.h>
-#endif
-
 /*
  * Data structure to fill with packet headers when we
  * get a new syn:
@@ -71,7 +63,6 @@ struct ipv4_packet{
 
 static int DEBUG = 0;
 static int background = 0;
-static int queuenum = 0;
 static int gcc_interval = PEP_GCC_INTERVAL;
 static int pending_conn_lifetime = PEP_PENDING_CONN_LIFETIME;
 static int portnum = PEP_DEFAULT_PORT;
@@ -118,7 +109,6 @@ struct pep_logger {
 static struct pep_queue active_queue, ready_queue;
 static struct pep_logger logger;
 
-static pthread_t queuer;
 static pthread_t listener;
 static pthread_t poller;
 static pthread_t timer_sch;
@@ -183,7 +173,7 @@ static void __pep_warning(const char *function, int line, const char *fmt, ...)
 
 static void usage(char *name)
 {
-    fprintf(stderr,"Usage: %s [-V] [-h] [-v] [-d] [-q QUEUENUM]"
+    fprintf(stderr,"Usage: %s [-V] [-h] [-v] [-d]"
             " [-a address] [-p port]"
             " [-c max_conn] [-l logfile] [-t proxy_lifetime]"
             " [-g garbage collector interval]\n", name);
@@ -572,146 +562,6 @@ err:
     return ret;
 }
 
-
-/* NFQUEUE callback function for incoming TCP syn */
-static int nfqueue_get_syn(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
-                           struct nfq_data *nfa, void *data)
-{
-    unsigned char *buffer;
-    struct ipv4_packet *ip4;
-    struct pep_proxy *proxy, *dup;
-    struct syntab_key key;
-    int id = 0, ret, added = 0;
-    struct nfqnl_msg_packet_hdr *ph;
-
-    PEP_DEBUG("Enter callback...");
-
-    proxy = NULL;
-    ph = nfq_get_msg_packet_hdr(nfa);
-    if(!ph){
-        pep_error("Unable to get packet header!");
-    }
-
-    id = ntohl(ph->packet_id);
-    ret = nfq_get_payload(nfa, &buffer);
-
-    PEP_DEBUG("payload_len = %d", ret);
-    proxy = alloc_proxy();
-    if (!proxy) {
-        pep_warning("Failed to allocate new pep_proxy instance! [%s:%d]",
-                    strerror(errno), errno);
-        ret = -1;
-        goto err;
-    }
-
-    /* Setup source and destination endpoints */
-    ip4 = (struct ipv4_packet *)buffer;
-    proxy->src.addr = ntohl(ip4->iph.saddr);
-    proxy->src.port = ntohs(ip4->tcph.source);
-    proxy->dst.addr = ntohl(ip4->iph.daddr);
-    proxy->dst.port = ntohs(ip4->tcph.dest);
-    proxy->syn_time = time(NULL);
-    syntab_format_key(proxy, &key);
-
-    /* Check for duplicate syn, and drop it.
-     * This happens when RTT is too long and we
-     * still didn't establish the connection.
-     */
-    SYNTAB_LOCK_WRITE();
-    dup = syntab_find(&key);
-    if (dup != NULL) {
-        PEP_DEBUG_DP(dup, "Duplicate SYN. Dropping...");
-        SYNTAB_UNLOCK_WRITE();
-        nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
-
-        goto err;
-    }
-
-    /* add to the table... */
-    proxy->status = PST_PENDING;
-    ret = syntab_add(proxy);
-    SYNTAB_UNLOCK_WRITE();
-    if (ret < 0) {
-        pep_warning("Failed to insert pep_proxy into a hash table!");
-        nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
-        goto err;
-    }
-
-    added = 1;
-    PEP_DEBUG_DP(proxy, "Registered new SYN");
-    ret = nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
-    if (ret < 0) {
-        pep_warning("nfq_set_verdict to NF_ACCEPT failed! [%s:%d]",
-                    strerror(errno), errno);
-        goto err;
-    }
-
-    return ret;
-
-err:
-    if (added) {
-        SYNTAB_LOCK_WRITE();
-        syntab_delete(proxy);
-        SYNTAB_UNLOCK_WRITE();
-    }
-    if (proxy != NULL) {
-        unpin_proxy(proxy);
-    }
-
-    return ret;
-}
-
-static void *queuer_loop(void __attribute__((unused)) *unused)
-{
-    struct nfq_handle *h;
-    struct nfq_q_handle *qh;
-    struct nfnl_handle *nh;
-
-    int fd, i, ret;
-    char buf[QUEUER_BUF_SIZE];
-    ssize_t rc;
-
-    PEP_DEBUG("Opening NFQ library handle");
-    h = nfq_open();
-    if (!h) {
-        pep_error("Failed to open NFQ handler!");
-    }
-
-    PEP_DEBUG("unbinding existing nf_queue handler "
-              "for AF_INET (if any)");
-    nfq_unbind_pf(h, AF_INET);
-
-    PEP_DEBUG("binding nfnetlink_queue as "
-              "nf_queue handler for AF_INET");
-    ret = nfq_bind_pf(h, AF_INET);
-    if (ret < 0) {
-        pep_error("Failed to bind NFQ handler! [RET = %d]", ret);
-    }
-
-    PEP_DEBUG("binding this socket to queue '%d'", queuenum);
-    qh = nfq_create_queue(h, queuenum, &nfqueue_get_syn, NULL);
-    if (!qh) {
-        pep_error("Failed to create nfnetlink queue!");
-    }
-
-    PEP_DEBUG("setting copy_packet mode");
-    ret = nfq_set_mode(qh, NFQNL_COPY_PACKET, 0xffff);
-    if (ret < 0) {
-        pep_error("Failed to setup NFQ packet_copy mode! [RET = %d]", ret);
-    }
-
-    nh = nfq_nfnlh(h);
-    fd = nfnl_fd(nh);
-
-    while ((rc = recv(fd, buf, QUEUER_BUF_SIZE, 0)) >= 0) {
-        PEP_DEBUG("received packet [sz = %ld]", rc);
-        nfq_handle_packet(h, buf, rc);
-    }
-
-    PEP_DEBUG("Exiting [rc=%ld]", rc);
-    nfq_close(h);
-    pthread_exit(NULL);
-}
 
 void *listener_loop(void UNUSED(*unused))
 {
@@ -1197,12 +1047,6 @@ static void *timer_sch_loop(void __attribute__((unused)) *unused)
 static void init_pep_threads(void)
 {
     int ret;
-    PEP_DEBUG("Creating queuer thread");
-    ret = pthread_create(&queuer, NULL, queuer_loop, NULL);
-    if (ret) {
-        pep_error("Failed to create the queuer thread! [RET = %d]", ret);
-    }
-
     PEP_DEBUG("Creating listener thread");
     ret = pthread_create(&listener, NULL, listener_loop, NULL);
     if (ret) {
@@ -1286,9 +1130,6 @@ int main(int argc, char *argv[])
                 break;
             case 'h':
                 usage(argv[0]); //implies exit
-                break;
-            case 'q':
-                queuenum = atoi(optarg);
                 break;
             case 'p':
                 portnum = atoi(optarg);

@@ -60,13 +60,13 @@
  * get a new syn:
  *
  * struct ipv4_packet
- *		iph : ip header for the packet
- *		tcph: tcp header for the segment
+ *      iph : ip header for the packet
+ *      tcph: tcp header for the segment
  *
  */
 struct ipv4_packet{
-	struct iphdr iph;
-	struct tcphdr tcph;
+    struct iphdr iph;
+    struct tcphdr tcph;
 };
 
 static int DEBUG = 0;
@@ -183,11 +183,11 @@ static void __pep_warning(const char *function, int line, const char *fmt, ...)
 
 static void usage(char *name)
 {
-	fprintf(stderr,"Usage: %s [-V] [-h] [-v] [-d] [-q QUEUENUM]"
+    fprintf(stderr,"Usage: %s [-V] [-h] [-v] [-d] [-q QUEUENUM]"
             " [-a address] [-p port]"
-	    " [-c max_conn] [-l logfile] [-t proxy_lifetime]"
-	    " [-g garbage collector interval]\n", name);
-	exit(EXIT_SUCCESS);
+            " [-c max_conn] [-l logfile] [-t proxy_lifetime]"
+            " [-g garbage collector interval]\n", name);
+    exit(EXIT_SUCCESS);
 }
 
 /*
@@ -218,14 +218,14 @@ static int nonblocking_err_p(int err)
  */
 static void toip(char *ret, int address)
 {
-	int a,b,c,d;
+    int a,b,c,d;
 
-	a = (0xFF000000 & address) >> 24;
-	b = (0x00FF0000 & address) >> 16;
-	c = (0x0000FF00 & address) >> 8;
-	d = 0x000000FF & address;
+    a = (0xFF000000 & address) >> 24;
+    b = (0x00FF0000 & address) >> 16;
+    c = (0x0000FF00 & address) >> 8;
+    d = 0x000000FF & address;
 
-	snprintf(ret,16,"%d.%d.%d.%d",a,b,c,d);
+    snprintf(ret,16,"%d.%d.%d.%d",a,b,c,d);
 }
 
 static char *conn_stat[] = {
@@ -273,13 +273,13 @@ static void logger_fn(void)
 
 static void setup_socket(int fd)
 {
-	struct timeval t= { 0, 10000 };
+    struct timeval t= { 0, 10000 };
     int flags;
 
     flags = fcntl(fd, F_GETFL, 0);
-	fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-	setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &t, sizeof(struct timeval));
-	setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &t, sizeof(struct timeval));
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &t, sizeof(struct timeval));
+    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &t, sizeof(struct timeval));
     PEP_DEBUG("Socket %d: Setting up timeouts and syncronous mode.", fd);
 }
 
@@ -577,23 +577,23 @@ err:
 static int nfqueue_get_syn(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                            struct nfq_data *nfa, void *data)
 {
-	unsigned char *buffer;
-	struct ipv4_packet *ip4;
-	struct pep_proxy *proxy, *dup;
-  struct syntab_key key;
-	int id = 0, ret, added = 0;
-	struct nfqnl_msg_packet_hdr *ph;
+    unsigned char *buffer;
+    struct ipv4_packet *ip4;
+    struct pep_proxy *proxy, *dup;
+    struct syntab_key key;
+    int id = 0, ret, added = 0;
+    struct nfqnl_msg_packet_hdr *ph;
 
-	PEP_DEBUG("Enter callback...");
+    PEP_DEBUG("Enter callback...");
 
     proxy = NULL;
-	ph = nfq_get_msg_packet_hdr(nfa);
-	if(!ph){
+    ph = nfq_get_msg_packet_hdr(nfa);
+    if(!ph){
         pep_error("Unable to get packet header!");
-	}
+    }
 
-	id = ntohl(ph->packet_id);
-	ret = nfq_get_payload(nfa, &buffer);
+    id = ntohl(ph->packet_id);
+    ret = nfq_get_payload(nfa, &buffer);
 
     PEP_DEBUG("payload_len = %d", ret);
     proxy = alloc_proxy();
@@ -605,7 +605,7 @@ static int nfqueue_get_syn(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
     }
 
     /* Setup source and destination endpoints */
-	ip4 = (struct ipv4_packet *)buffer;
+    ip4 = (struct ipv4_packet *)buffer;
     proxy->src.addr = ntohl(ip4->iph.saddr);
     proxy->src.port = ntohs(ip4->tcph.source);
     proxy->dst.addr = ntohl(ip4->iph.daddr);
@@ -613,7 +613,7 @@ static int nfqueue_get_syn(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
     proxy->syn_time = time(NULL);
     syntab_format_key(proxy, &key);
 
-	/* Check for duplicate syn, and drop it.
+    /* Check for duplicate syn, and drop it.
      * This happens when RTT is too long and we
      * still didn't establish the connection.
      */
@@ -625,9 +625,9 @@ static int nfqueue_get_syn(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
         nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
 
         goto err;
-	}
+    }
 
-	/* add to the table... */
+    /* add to the table... */
     proxy->status = PST_PENDING;
     ret = syntab_add(proxy);
     SYNTAB_UNLOCK_WRITE();
@@ -639,7 +639,7 @@ static int nfqueue_get_syn(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 
     added = 1;
     PEP_DEBUG_DP(proxy, "Registered new SYN");
-	ret = nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+    ret = nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
     if (ret < 0) {
         pep_warning("nfq_set_verdict to NF_ACCEPT failed! [%s:%d]",
                     strerror(errno), errno);
@@ -663,12 +663,12 @@ err:
 
 static void *queuer_loop(void __attribute__((unused)) *unused)
 {
-	struct nfq_handle *h;
-	struct nfq_q_handle *qh;
-	struct nfnl_handle *nh;
+    struct nfq_handle *h;
+    struct nfq_q_handle *qh;
+    struct nfnl_handle *nh;
 
-	int fd, i, ret;
-	char buf[QUEUER_BUF_SIZE];
+    int fd, i, ret;
+    char buf[QUEUER_BUF_SIZE];
     ssize_t rc;
 
     PEP_DEBUG("Opening NFQ library handle");
@@ -716,7 +716,7 @@ static void *queuer_loop(void __attribute__((unused)) *unused)
 void *listener_loop(void UNUSED(*unused))
 {
     int                 listenfd, optval, ret, connfd, out_fd;
-	struct sockaddr_in  cliaddr, servaddr,
+    struct sockaddr_in  cliaddr, servaddr,
                         r_servaddr, proxy_servaddr;
     socklen_t           len;
     struct pep_proxy   *proxy;
@@ -1002,7 +1002,7 @@ static void *poller_loop(void  __attribute__((unused)) *unused)
         if (!num_clients) {
             sigprocmask(SIG_UNBLOCK, &sigset, NULL);
             sigwaitinfo(&sigset, NULL);
-		continue;
+        continue;
         }
 
         sigprocmask(SIG_UNBLOCK, &sigset, NULL);
@@ -1010,7 +1010,7 @@ static void *poller_loop(void  __attribute__((unused)) *unused)
         if (pollret < 0) {
             if (errno == EINTR) {
                 /* It seems that new client just appered. Renew descriptors. */
-		continue;
+        continue;
             }
 
             pep_error("poll() error!");

@@ -63,6 +63,7 @@ struct ipv4_packet{
 
 static int DEBUG = 0;
 static int background = 0;
+static int fastopen = 0;
 static int gcc_interval = PEP_GCC_INTERVAL;
 static int pending_conn_lifetime = PEP_PENDING_CONN_LIFETIME;
 static int portnum = PEP_DEFAULT_PORT;
@@ -173,7 +174,7 @@ static void __pep_warning(const char *function, int line, const char *fmt, ...)
 
 static void usage(char *name)
 {
-    fprintf(stderr,"Usage: %s [-V] [-h] [-v] [-d]"
+    fprintf(stderr,"Usage: %s [-V] [-h] [-v] [-d] [-f]"
             " [-a address] [-p port]"
             " [-c max_conn] [-l logfile] [-t proxy_lifetime]"
             " [-g garbage collector interval]\n", name);
@@ -601,6 +602,16 @@ void *listener_loop(void UNUSED(*unused))
         pep_error("Failed to set IP_TRANSPARENT option! [RET = %d]", ret);
     }
 
+    /* Set TCP_FASTOPEN socket option */
+    if (fastopen) {
+      optval = 5;
+      ret = setsockopt(listenfd, SOL_TCP, TCP_FASTOPEN,
+                       &optval, sizeof(optval));
+      if (ret < 0) {
+          pep_error("Failed to set TCP_FASTOPEN option! [RET = %d]", ret);
+      }
+    }
+
     ret = bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
     if (ret < 0) {
         pep_error("Failed to bind socket! [RET = %d]", ret);
@@ -722,8 +733,14 @@ void *listener_loop(void UNUSED(*unused))
             goto close_connection;
         }
 
-        ret = connect(out_fd, (struct sockaddr *)&r_servaddr,
-                      sizeof(r_servaddr));
+        if (fastopen) {
+          ret = sendto(out_fd, PEPBUF_WPOS(&proxy->src.buf), 0, MSG_FASTOPEN,
+                       (struct sockaddr *)&r_servaddr, sizeof(r_servaddr));
+        }
+        else {
+          ret = connect(out_fd, (struct sockaddr *)&r_servaddr,
+                        sizeof(r_servaddr));
+        }
         if ((ret < 0) && !nonblocking_err_p(errno)) {
             pep_warning("Failed to connect! [%s:%d]", strerror(errno), errno);
             goto close_connection;
@@ -1105,7 +1122,7 @@ int main(int argc, char *argv[])
             {"daemon", 1, 0, 'd'},
             {"verbose", 1, 0, 'v'},
             {"help", 0, 0, 'h'},
-            {"queue", 1, 0, 'q'},
+            {"fastopen", 0, 0, 'f'},
             {"port", 1, 0, 'p'},
             {"version", 0, 0, 'V'},
             {"address", 1, 0, 'a'},
@@ -1116,7 +1133,7 @@ int main(int argc, char *argv[])
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "dvVhq:p:a:l:g:t:c:",
+        c = getopt_long(argc, argv, "dvVhfp:a:l:g:t:c:",
                         long_options, &option_index);
         if (c == -1)
             break;
@@ -1130,6 +1147,9 @@ int main(int argc, char *argv[])
                 break;
             case 'h':
                 usage(argv[0]); //implies exit
+                break;
+            case 'f':
+                fastopen = 1;
                 break;
             case 'p':
                 portnum = atoi(optarg);

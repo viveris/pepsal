@@ -99,12 +99,15 @@ static __inline void syntab_make_key(struct syntab_key *key,
     key->port = port;
 }
 
-struct pep_proxy *syntab_find(int addr, unsigned short port)
+void syntab_format_key(struct pep_proxy *proxy, struct syntab_key *key)
 {
-    struct syntab_key key;
+    key->addr = proxy->src.addr;
+    key->port = proxy->src.port;
+}
 
-    syntab_make_key(&key, addr, port);
-    return hashtable_search(syntab.hash, &key);
+struct pep_proxy *syntab_find(struct syntab_key *key)
+{
+    return hashtable_search(syntab.hash, key);
 }
 
 int syntab_add(struct pep_proxy *proxy)

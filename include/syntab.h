@@ -42,7 +42,8 @@ extern struct syn_table syntab;
     list_for_each_entry(&GET_SYNTAB()->conns, con, struct pep_proxy, lnode)
 
 int syntab_init(int num_conns);
-struct pep_proxy *syntab_find(int addr, unsigned short port);
+void syntab_format_key(struct pep_proxy *proxy, struct syntab_key *key);
+struct pep_proxy *syntab_find(struct syntab_key *key);
 int syntab_add(struct pep_proxy *proxy);
 void syntab_delete(struct pep_proxy *proxy);
 

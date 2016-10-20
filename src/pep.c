@@ -39,7 +39,7 @@
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
-
+#include <net/if.h>
 
 #include <sys/poll.h>
 #include <string.h>
@@ -493,6 +493,86 @@ static void pep_proxy_data(struct pep_endpoint *from, struct pep_endpoint *to)
     }
 }
 
+static int save_proxy_from_socket(int sockfd, struct sockaddr_in cliaddr)
+{
+    char *buffer;
+    struct ipv4_packet *ip4;
+    struct pep_proxy *proxy, *dup;
+    struct syntab_key key;
+    int id = 0, ret, added = 0;
+    struct sockaddr_in orig_dst;
+    int addrlen = sizeof(orig_dst);
+
+    PEP_DEBUG("Saving new SYN...");
+
+    proxy = NULL;
+    proxy = alloc_proxy();
+    if (!proxy) {
+        pep_warning("Failed to allocate new pep_proxy instance! [%s:%d]",
+                    strerror(errno), errno);
+        ret = -1;
+        goto err;
+    }
+
+    /* Socket is bound to original destination */
+    if(getsockname(sockfd, (struct sockaddr *) &orig_dst, &addrlen) < 0){
+        pep_warning("Failed to get original dest from socket! [%s:%d]",
+                    strerror(errno), errno);
+        ret = -1;
+        goto err;
+    }
+
+    /* Setup source and destination endpoints */
+    proxy->src.addr = ntohl(cliaddr.sin_addr.s_addr);
+    proxy->src.port = ntohs(cliaddr.sin_port);
+    proxy->dst.addr = ntohl(orig_dst.sin_addr.s_addr);
+    proxy->dst.port = ntohs(orig_dst.sin_port);
+    proxy->syn_time = time(NULL);
+    syntab_format_key(proxy, &key);
+
+    /* Check for duplicate syn, and drop it.
+     * This happens when RTT is too long and we
+     * still didn't establish the connection.
+     */
+    SYNTAB_LOCK_WRITE();
+    dup = syntab_find(&key);
+    if (dup != NULL) {
+        PEP_DEBUG_DP(dup, "Duplicate SYN. Dropping...");
+        SYNTAB_UNLOCK_WRITE();
+        goto err;
+    }
+
+    /* add to the table... */
+    proxy->status = PST_PENDING;
+    ret = syntab_add(proxy);
+    SYNTAB_UNLOCK_WRITE();
+    if (ret < 0) {
+        pep_warning("Failed to insert pep_proxy into a hash table!");
+        goto err;
+    }
+
+    added = 1;
+    PEP_DEBUG_DP(proxy, "Registered new SYN");
+    if (ret < 0) {
+        pep_warning("nfq_set_verdict to NF_ACCEPT failed! [%s:%d]",
+                    strerror(errno), errno);
+        goto err;
+    }
+
+    return ret;
+
+err:
+    if (added) {
+        syntab_delete(proxy);
+    }
+    if (proxy != NULL) {
+        unpin_proxy(proxy);
+    }
+
+    return ret;
+}
+
+
 /* NFQUEUE callback function for incoming TCP syn */
 static int nfqueue_get_syn(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                            struct nfq_data *nfa, void *data)
@@ -500,10 +580,11 @@ static int nfqueue_get_syn(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 	unsigned char *buffer;
 	struct ipv4_packet *ip4;
 	struct pep_proxy *proxy, *dup;
+  struct syntab_key key;
 	int id = 0, ret, added = 0;
 	struct nfqnl_msg_packet_hdr *ph;
 
-    PEP_DEBUG("Eneter callback...");
+	PEP_DEBUG("Enter callback...");
 
     proxy = NULL;
 	ph = nfq_get_msg_packet_hdr(nfa);
@@ -530,13 +611,14 @@ static int nfqueue_get_syn(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
     proxy->dst.addr = ntohl(ip4->iph.daddr);
     proxy->dst.port = ntohs(ip4->tcph.dest);
     proxy->syn_time = time(NULL);
+    syntab_format_key(proxy, &key);
 
 	/* Check for duplicate syn, and drop it.
      * This happens when RTT is too long and we
      * still didn't establish the connection.
      */
     SYNTAB_LOCK_WRITE();
-    dup = syntab_find(proxy->src.addr, proxy->src.port);
+    dup = syntab_find(&key);
     if (dup != NULL) {
         PEP_DEBUG_DP(dup, "Duplicate SYN. Dropping...");
         SYNTAB_UNLOCK_WRITE();
@@ -622,25 +704,26 @@ static void *queuer_loop(void __attribute__((unused)) *unused)
     fd = nfnl_fd(nh);
 
     while ((rc = recv(fd, buf, QUEUER_BUF_SIZE, 0)) >= 0) {
-        PEP_DEBUG("received packet [sz = %d]", rc);
+        PEP_DEBUG("received packet [sz = %ld]", rc);
         nfq_handle_packet(h, buf, rc);
     }
 
-    PEP_DEBUG("Exiting [rc=%d]", rc);
+    PEP_DEBUG("Exiting [rc=%ld]", rc);
     nfq_close(h);
     pthread_exit(NULL);
 }
 
 void *listener_loop(void UNUSED(*unused))
 {
-    int                 listenfd, optval, ret, connfd, out_fd, c_addr;
+    int                 listenfd, optval, ret, connfd, out_fd;
 	struct sockaddr_in  cliaddr, servaddr,
                         r_servaddr, proxy_servaddr;
     socklen_t           len;
     struct pep_proxy   *proxy;
     struct hostent     *host;
-    char                ipbuf[17];
+    char                ipbuf[17], ipbuf1[17];
     unsigned short      r_port, c_port;
+    struct syntab_key   key;
 
     listenfd = socket(AF_INET, SOCK_STREAM, 0);
     if (listenfd < 0) {
@@ -659,6 +742,13 @@ void *listener_loop(void UNUSED(*unused))
                      &optval, sizeof(optval));
     if (ret < 0) {
         pep_error("Failed to set SOL_REUSEADDR option! [RET = %d]", ret);
+    }
+ 
+    /* Set socket transparent (able to bind to external address) */
+    ret = setsockopt(listenfd, SOL_IP, IP_TRANSPARENT,
+                     &optval, sizeof(optval));
+    if (ret < 0) {
+        pep_error("Failed to set IP_TRANSPARENT option! [RET = %d]", ret);
     }
 
     ret = bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
@@ -690,13 +780,27 @@ void *listener_loop(void UNUSED(*unused))
          * Try to find incomming connection in our SYN table
          * It must be already there waiting for activation.
          */
-        c_addr = ntohl(cliaddr.sin_addr.s_addr);
-        c_port = ntohs(cliaddr.sin_port);
-        toip(ipbuf, c_addr);
-        PEP_DEBUG("New incomming connection: %s:%d", ipbuf, c_port);
+        key.addr = ntohl(cliaddr.sin_addr.s_addr);
+        key.port = ntohs(cliaddr.sin_port);
+        toip(ipbuf, key.addr);
+        PEP_DEBUG("New incomming connection: %s:%d", ipbuf, key.port);
 
         SYNTAB_LOCK_READ();
-        proxy = syntab_find(c_addr, c_port);
+        proxy = syntab_find(&key);
+
+        /*
+         * If the proxy is not in the table, add the entry.
+         */
+        if (!proxy) {
+            SYNTAB_UNLOCK_READ();
+            save_proxy_from_socket(connfd, cliaddr);
+            SYNTAB_LOCK_READ();
+            proxy = syntab_find(&key);
+        }
+
+        /*
+         * If still can't find key in the table, there is an error.
+         */
         if (!proxy) {
             pep_warning("Can not find the connection in SYN table. "
                         "Terminating!");
@@ -741,10 +845,24 @@ void *listener_loop(void UNUSED(*unused))
         out_fd = ret;
         fcntl(out_fd, F_SETFL, O_NONBLOCK);
 
+        /*
+         * Set outbound endpoint to transparent mode
+         * (bind to external address)
+         */
+        ret = setsockopt(out_fd, SOL_IP, IP_TRANSPARENT,
+                         &optval, sizeof(optval));
+        if (ret < 0) {
+            pep_error("Failed to set IP_TRANSPARENT option! [RET = %d]", ret);
+        }
+
+        toip(ipbuf, proxy->src.addr);
+        toip(ipbuf1, proxy->dst.addr);
         memset(&proxy_servaddr, 0, sizeof(proxy_servaddr));
         proxy_servaddr.sin_family = AF_INET;
-        proxy_servaddr.sin_addr.s_addr = inet_addr(pepsal_ip_addr);
-        proxy_servaddr.sin_port = htons(0);
+        proxy_servaddr.sin_addr.s_addr = inet_addr(ipbuf);
+        proxy_servaddr.sin_port = htons(proxy->src.port);
+        PEP_DEBUG("# Binding socket [%s:%d] --> [%s:%d]",
+                  ipbuf, proxy->src.port, ipbuf1, proxy->dst.port); 
 
         ret = bind(out_fd, (struct sockaddr *)&proxy_servaddr,
                    sizeof(proxy_servaddr));
@@ -755,7 +873,7 @@ void *listener_loop(void UNUSED(*unused))
         }
 
         ret = connect(out_fd, (struct sockaddr *)&r_servaddr,
-                      sizeof(struct sockaddr));
+                      sizeof(r_servaddr));
         if ((ret < 0) && !nonblocking_err_p(errno)) {
             pep_warning("Failed to connect! [%s:%d]", strerror(errno), errno);
             goto close_connection;

@@ -1197,7 +1197,6 @@ int main(int argc, char *argv[])
     create_threads_pool(PEPPOOL_THREADS);
 
     PEP_DEBUG("Pepsal started...");
-    pthread_join(queuer, &valptr);
     pthread_join(listener, &valptr);
     pthread_join(poller, &valptr);
     pthread_join(timer_sch, &valptr);

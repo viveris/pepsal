@@ -22,3 +22,12 @@ config.h
 config.h.in
 
 src/pepsal
+debian/pepsal
+debian/files
+debian/tmp
+*.substvars
+*.debhelper*
+*.libs
+*.deb
+*.dsc
+*.tar.gz

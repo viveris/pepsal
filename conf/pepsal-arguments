@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# Read configurations variable if it is present
+[ -r /etc/pepsal/pepsal.conf ] && . /etc/pepsal/pepsal.conf
+
+# Remove old file 
+rm -f /etc/pepsal/.pepsal.conf
+
+# Save variables to arguments file
+if [ -z "$port" ]
+then
+	echo "port=5000" >>/etc/pepsal/.pepsal.conf
+else
+	echo "port=${port}" >>/etc/pepsal/.pepsal.conf
+fi
+
+if [ -z "$ip_address" ]
+then
+	echo "ip_address=0.0.0.0" >>/etc/pepsal/.pepsal.conf
+else
+	echo "ip_address=${ip_address}" >>/etc/pepsal/.pepsal.conf
+fi
+
+if [ -z "$max_conns" ]
+then
+	echo "max_conns=2112" >>/etc/pepsal/.pepsal.conf
+else
+	echo "max_conns=${max_conns}" >>/etc/pepsal/.pepsal.conf
+fi
+
+if [ -z "$gcc_interval" ]
+then
+	echo "gcc_interval=54000" >>/etc/pepsal/.pepsal.conf
+else
+	echo "gcc_interval=${gcc_interval}" >>/etc/pepsal/.pepsal.conf
+fi
+
+if [ -z "$log_file" ]
+then
+	echo "log_file=/var/log/pepsal.log" >>/etc/pepsal/.pepsal.conf
+else
+	echo "log_file=${log_file}" >>/etc/pepsal/.pepsal.conf
+fi
+
+if [[ $fastopen = true ]]
+then
+	echo "fastopen=-f" >>/etc/pepsal/.pepsal.conf
+else
+	echo "fastopen=" >>/etc/pepsal/.pepsal.conf
+fi
+
+if [[ $debug = true ]]
+then
+	echo "debug=-f" >>/etc/pepsal/.pepsal.conf
+else
+	echo "debug=" >>/etc/pepsal/.pepsal.conf
+fi

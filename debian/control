@@ -1,0 +1,16 @@
+Source: pepsal
+Section: misc
+Priority: optional
+Maintainer: PEPSal Maintainers <admin@pepsal.org>
+Build-Depends: debhelper (>= 8.0.0), dh-systemd, 
+  iptables, iproute2
+Standards-Version: 3.9.4
+
+Package: pepsal
+Architecture: any
+Section: misc
+Depends: ${shlibs:Depends}, ${misc:Depends}, iptables,
+  iproute2, lsb-base (>= 3.2-14)
+Description: PEPSal Performance Enhancing Proxy
+  PEPSal is an open-source TCP Performance Enhancing Proxy (PEP)
+  for satellite links. 

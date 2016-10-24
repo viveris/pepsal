@@ -18,9 +18,21 @@ set -e
 # for details, see http://www.debian.org/doc/debian-policy/ or
 # the debian-policy package
 
+remove_syslog_conf()
+{
+    EXE_RM="/bin/rm"
+    SYSLOG_CONF="/etc/rsyslog.d/pepsal.conf"
+    LOGROTATE_CONF="/etc/logrotate.d/pepsal.conf"
+
+    ${EXE_RM} -f ${SYSLOG_CONF} || true
+    ${EXE_RM} -f ${LOGROTATE_CONF} || true
 
 case "$1" in
-    purge|remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+    purge)
+        remove_syslog_conf
+    ;;
+    
+    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
     ;;
 
     *)

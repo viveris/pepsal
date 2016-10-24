@@ -44,6 +44,7 @@
 #include <string.h>
 #include <time.h>
 #include <signal.h>
+#include <syslog.h>
 
 #include <sys/time.h>
 
@@ -115,16 +116,22 @@ static pthread_t poller;
 static pthread_t timer_sch;
 static pthread_t *workers = NULL;
 
-#define pep_error(fmt, args...)                     \
-    __pep_error(__FUNCTION__, __LINE__, fmt, ##args)
+#define pep_error(fmt, args...)                       \
+    syslog(LOG_ERR, "%s():%d: " fmt " (errno %d)",    \
+           __FUNCTION__, __LINE__, ##args, errno);    \
+    __pep_error(__FUNCTION__, __LINE__, fmt, ##args)  
 
-#define pep_warning(fmt, args...)                   \
+#define pep_warning(fmt, args...)                     \
+    syslog(LOG_WARNING, "%s():%d: " fmt,              \
+           __FUNCTION__, __LINE__, ##args);           \
     __pep_warning(__FUNCTION__, __LINE__, fmt, ##args)
 
-#define PEP_DEBUG(fmt, args...)                     \
-    if (DEBUG) {                                    \
-        fprintf(stderr, "[DEBUG] %s(): " fmt "\n",  \
-                __FUNCTION__, ##args);              \
+#define PEP_DEBUG(fmt, args...)                       \
+    if (DEBUG) {                                      \
+        fprintf(stderr, "[DEBUG] %s(): " fmt "\n",    \
+                __FUNCTION__, ##args);                \
+        syslog(LOG_DEBUG, "%s(): " fmt, __FUNCTION__, \
+              ##args);                                \
     }
 
 #define PEP_DEBUG_DP(proxy, fmt, args...)                           \
@@ -133,6 +140,8 @@ static pthread_t *workers = NULL;
         toip(__buf, (proxy)->src.addr);                             \
         fprintf(stderr, "[DEBUG] %s(): {%s:%d} " fmt "\n",          \
                 __FUNCTION__, __buf, (proxy)->src.port, ##args);    \
+        syslog(LOG_DEBUG, "%s(): {%s:%d} " fmt, __FUNCTION__,       \
+               __buf, (proxy)->src.port, ##args);                   \
     }
 
 static void __pep_error(const char *function, int line, const char *fmt, ...)
@@ -153,6 +162,7 @@ static void __pep_error(const char *function, int line, const char *fmt, ...)
 
     fprintf(stderr, "%s\n         AT: %s:%d\n", buf, function, line);
     va_end(ap);
+    closelog();
     exit(EXIT_FAILURE);
 }
 
@@ -1179,6 +1189,7 @@ int main(int argc, char *argv[])
                 exit(0);
         }
     }
+    openlog(PROGRAM_NAME, LOG_PID, LOG_DAEMON);
 
     if (background) {
         PEP_DEBUG("Daemonizing...");
@@ -1220,6 +1231,7 @@ int main(int argc, char *argv[])
     pthread_join(listener, &valptr);
     pthread_join(poller, &valptr);
     pthread_join(timer_sch, &valptr);
-    printf("exiting...\n");
+    PEP_DEBUG("exiting...\n");
+    closelog();
     return 0;
 }

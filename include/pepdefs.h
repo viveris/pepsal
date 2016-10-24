@@ -3,6 +3,9 @@
 
 #include <sys/user.h>
 
+/* Program name */
+#define PROGRAM_NAME "pepsal"
+
 /* Minimal and maximal number of simultaneous connections */
 #define PEP_MIN_CONNS 128
 #define PEP_MAX_CONNS 4096

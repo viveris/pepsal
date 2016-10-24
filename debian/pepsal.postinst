@@ -17,10 +17,15 @@ set -e
 # for details, see http://www.debian.org/doc/debian-policy/ or
 # the debian-policy package
 
+restart_syslog()
+{
+    service rsyslog restart
+}
 
 case "$1" in
     configure)
-	    chmod +x /etc/pepsal/pepsal-arguments
+        chmod +x /etc/pepsal/pepsal-arguments
+        restart_syslog
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

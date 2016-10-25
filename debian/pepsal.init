@@ -34,7 +34,7 @@ SCRIPTNAME=/etc/init.d/$NAME
 
 # Set daemon args
 DAEMON_ARGS="${DAEMON_ARGS} ${fastopen} ${debug} -p ${port} -a ${ip_address}"\
-" -c ${max_conns} -g ${gcc_interval} -l ${log_file}"
+" -c ${max_conns} -g ${gcc_interval} -l ${log_file} -t ${pending_lifetime}"
 
 # Load the VERBOSE setting and other rcS variables
 . /lib/init/vars.sh

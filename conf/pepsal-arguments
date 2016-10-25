@@ -42,6 +42,13 @@ else
 	echo "log_file=${log_file}" >>/etc/pepsal/.pepsal.conf
 fi
 
+if [ -z "$pending_lifetime" ]
+then
+	echo "pending_lifetime=18000" >>/etc/pepsal/.pepsal.conf
+else
+	echo "pending_lifetime=${pending_lifetime}" >>/etc/pepsal/.pepsal.conf
+fi
+
 if [[ $fastopen = true ]]
 then
 	echo "fastopen=-f" >>/etc/pepsal/.pepsal.conf

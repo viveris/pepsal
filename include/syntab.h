@@ -3,6 +3,7 @@
  *
  * Copyleft Daniele Lacamera 2005-2007
  * Copyleft Dan Kruchinin <dkruchinin@acm.org> 2010
+ * Copyleft Joaquin Muguerza <jmuguerza@toulouse.viveris.fr> 2016
  * See AUTHORS and COPYING before using this software.
  *
  *

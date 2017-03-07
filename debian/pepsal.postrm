@@ -26,6 +26,7 @@ remove_syslog_conf()
 
     ${EXE_RM} -f ${SYSLOG_CONF} || true
     ${EXE_RM} -f ${LOGROTATE_CONF} || true
+}
 
 case "$1" in
     purge)

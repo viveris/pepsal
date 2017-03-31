@@ -1,3 +1,9 @@
+pepsal (1.9.0) trusty; urgency=low
+
+  * Added support for TCP FastOpen and TPROXY
+
+ -- OpenSAND Maintainers <admin@opensand.org>  Fri, 31 Mar 2017 10:12:38 +0200
+
 pepsal (1.8.8) trusty; urgency=low
 
   * Initial release

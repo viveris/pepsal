@@ -2,7 +2,7 @@
  * PEPsal : A Performance Enhancing Proxy for Satellite Links
  *
  * Copyleft Dan Kruchinin <dkruchinin@acm.org> 2010
- * Copyleft Joaquin Muguerza <jmuguerza@toulouse.viveris.fr> 2016
+ * Copyright CNES 2017
  * See AUTHORS and COPYING before using this software.
  *
  *

@@ -19,6 +19,8 @@
 /etc/pepsal/pepsal-arguments
 [ -r /etc/pepsal/.pepsal.conf ] && . /etc/pepsal/.pepsal.conf
 
+# Create log dir if not existant
+mkdir -p /var/log/pepsal
 
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
 PATH=/sbin:/usr/sbin:/bin:/usr/bin

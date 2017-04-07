@@ -6,7 +6,6 @@ After=systemd-journald-dev-log.socket
 [Service]
 Type=forking
 ExecStartPre=/etc/pepsal/pepsal-arguments
-ExecStartPre=/bin/mkdir -p /var/log/pepsal
 ExecStart=/bin/sh -ac ". /etc/pepsal/.pepsal.conf ; sh /etc/pepsal/start.ini"
 
 [Install]

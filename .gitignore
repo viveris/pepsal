@@ -31,3 +31,4 @@ debian/tmp
 *.deb
 *.dsc
 *.tar.gz
+debhelper-build-stamp

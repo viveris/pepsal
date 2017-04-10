@@ -2,7 +2,8 @@ Source: pepsal
 Section: misc
 Priority: optional
 Maintainer: PEPSal Maintainers <admin@pepsal.org>
-Build-Depends: debhelper (>= 8.0.0), dh-systemd, 
+Build-Depends: debhelper (>= 8.0.0), dh-systemd, autotools-dev,
+  automake, libtool, pkg-config,
   iptables, iproute2, libnfnetlink-dev
 Standards-Version: 3.9.4
 
